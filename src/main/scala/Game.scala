@@ -1,5 +1,3 @@
-import java.nio.FloatBuffer
-
 import org.lwjgl.BufferUtils
 import org.lwjgl.LWJGLException
 import org.lwjgl.opengl.Display
@@ -21,27 +19,36 @@ class Game {
   val strVertexShader = """
                         #version 330
 
-                        layout(location = 0) in vec4 position;
+                        layout (location = 0) in vec4 position;
+                        layout (location = 1) in vec4 color;
+
+                        smooth out vec4 theColor;
+
                         void main()
                         {
                             gl_Position = position;
+                            theColor = color;
                         }
                         """
 
   val strFragmentShader = """
                           #version 330
 
+                          smooth in vec4 theColor;
                           out vec4 outputColor;
                           void main()
                           {
-                             outputColor = vec4(1.0f, 0.0f, 1.0f, 1.0f);
+                              outputColor = theColor;
                           }
                           """
 
-  val vertexPositions = Array(
-    0.75f, 0.75f, 0.0f, 1.0f,
-    0.75f, -0.75f, 0.0f, 1.0f,
-    -0.75f, -0.75f, 0.0f, 1.0f
+  val vertexData = Array(
+    0.0f, 0.5f, 0.0f, 1.0f, // top
+    0.5f, -0.366f, 0.0f, 1.0f, // right
+    -0.5f, -0.366f, 0.0f, 1.0f, // left
+    1.0f, 0.0f, 0.0f, 1.0f, // red
+    0.0f, 1.0f, 0.0f, 1.0f, // green
+    0.0f, 0.0f, 1.0f, 1.0f // blue
   )
 
   lazy val positionBufferObject = initVertexBuffer()
@@ -99,7 +106,7 @@ class Game {
     theProgram
   }
 
-  def createProgram(shaderList: Array[Int]) = {
+  def createProgram(shaderList: Array[Int]): Int = {
     val program = GL20.glCreateProgram()
     shaderList.foreach(GL20.glAttachShader(program, _))
     GL20.glLinkProgram(program)
@@ -114,8 +121,8 @@ class Game {
   }
 
   def initVertexBuffer(): Int = {
-    val vertexPositionsBuffer = BufferUtils.createFloatBuffer(vertexPositions.length)
-    vertexPositionsBuffer.put(vertexPositions)
+    val vertexPositionsBuffer = BufferUtils.createFloatBuffer(vertexData.length)
+    vertexPositionsBuffer.put(vertexData)
     vertexPositionsBuffer.flip()
 
     val positionBufferObject = GL15.glGenBuffers()
@@ -150,12 +157,16 @@ class Game {
     GL20.glUseProgram(theProgram)
 
     GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, positionBufferObject)
+
     GL20.glEnableVertexAttribArray(0)
+    GL20.glEnableVertexAttribArray(1)
     GL20.glVertexAttribPointer(0, 4, GL11.GL_FLOAT, false, 0, 0)
+    GL20.glVertexAttribPointer(1, 4, GL11.GL_FLOAT, false, 0, 48)
 
     GL11.glDrawArrays(GL11.GL_TRIANGLES, 0, 3)
 
     GL20.glDisableVertexAttribArray(0)
+    GL20.glDisableVertexAttribArray(1)
     GL20.glUseProgram(0)
   }
 
@@ -169,7 +180,7 @@ class Game {
   def updateFPS(lastFPS: Long, fps: Int): (Long, Int) = {
     val isNext = (getTime() - lastFPS) > 1000.0
     val newFps = if (isNext) 0 else fps + 1
-    val newLastFPS = if(isNext) lastFPS + 1000 else lastFPS
+    val newLastFPS = if (isNext) lastFPS + 1000 else lastFPS
     if (isNext) Display.setTitle("FPS: " + fps)
     (newLastFPS, newFps)
   }
