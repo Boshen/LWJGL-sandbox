@@ -19,40 +19,54 @@ class Game {
   val strVertexShader = """
                         #version 330
 
-                        layout (location = 0) in vec4 position;
-                        layout (location = 1) in vec4 color;
-
-                        smooth out vec4 theColor;
+                        layout(location = 0) in vec4 position;
+                        uniform float loopDuration;
+                        uniform float time;
 
                         void main()
                         {
-                            gl_Position = position;
-                            theColor = color;
+                            float timeScale = 3.14159f * 2.0f / loopDuration;
+
+                            float currTime = mod(time, loopDuration);
+                            vec4 totalOffset = vec4(
+                                cos(currTime * timeScale) * 0.5f,
+                                sin(currTime * timeScale) * 0.5f,
+                                0.0f,
+                                0.0f);
+
+                            gl_Position = position + totalOffset;
                         }
                         """
 
   val strFragmentShader = """
                           #version 330
 
-                          smooth in vec4 theColor;
                           out vec4 outputColor;
+
+                          uniform float fragLoopDuration;
+                          uniform float time;
+
+                          const vec4 firstColor = vec4(0.0f, 0.0f, 1.0f, 1.0f);
+                          const vec4 secondColor = vec4(0.0f, 1.0f, 0.0f, 1.0f);
+
                           void main()
                           {
-                              outputColor = theColor;
+                              float currTime = mod(time, fragLoopDuration);
+                              float currLerp = currTime / fragLoopDuration;
+
+                              outputColor = mix(firstColor, secondColor, currLerp);
                           }
                           """
 
   val vertexData = Array(
-    0.0f, 0.5f, 0.0f, 1.0f, // top
-    0.5f, -0.366f, 0.0f, 1.0f, // right
-    -0.5f, -0.366f, 0.0f, 1.0f, // left
-    1.0f, 0.0f, 0.0f, 1.0f, // red
-    0.0f, 1.0f, 0.0f, 1.0f, // green
-    0.0f, 0.0f, 1.0f, 1.0f // blue
+    0.0f, 0.25f, 0.0f, 1.0f,
+    0.25f, -0.188f, 0.0f, 1.0f,
+    -0.25f, -0.188f, 0.0f, 1.0f
   )
 
   lazy val positionBufferObject = initVertexBuffer()
   lazy val theProgram = initProgram()
+  lazy val startTime = System.nanoTime()
 
   def start() {
     initWindow(800, 600)
@@ -102,6 +116,13 @@ class Game {
     )
 
     val theProgram = createProgram(shaderList)
+    val loopDurationUnf = GL20.glGetUniformLocation(theProgram, "loopDuration")
+    val fragLoopDurUnf = GL20.glGetUniformLocation(theProgram, "fragLoopDuration")
+
+    GL20.glUseProgram(theProgram)
+    GL20.glUniform1f(loopDurationUnf, 5.0f)
+    GL20.glUniform1f(fragLoopDurUnf, 10.0f)
+    GL20.glUseProgram(0)
     shaderList.foreach(GL20.glDeleteShader(_))
     theProgram
   }
@@ -153,20 +174,14 @@ class Game {
   def display() {
     GL11.glClearColor(0.0f, 0.0f, 0.0f, 0.0f)
     GL11.glClear(GL11.GL_COLOR_BUFFER_BIT)
-
     GL20.glUseProgram(theProgram)
-
+    val elapsedTimeUnf = GL20.glGetUniformLocation(theProgram, "time")
+    GL20.glUniform1f(elapsedTimeUnf, getElapsedTime() / 1000.0f)
     GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, positionBufferObject)
-
     GL20.glEnableVertexAttribArray(0)
-    GL20.glEnableVertexAttribArray(1)
     GL20.glVertexAttribPointer(0, 4, GL11.GL_FLOAT, false, 0, 0)
-    GL20.glVertexAttribPointer(1, 4, GL11.GL_FLOAT, false, 0, 48)
-
     GL11.glDrawArrays(GL11.GL_TRIANGLES, 0, 3)
-
     GL20.glDisableVertexAttribArray(0)
-    GL20.glDisableVertexAttribArray(1)
     GL20.glUseProgram(0)
   }
 
@@ -176,6 +191,9 @@ class Game {
 
   def getTime(): Long =
     Sys.getTime() * 1000 / Sys.getTimerResolution()
+
+  def getElapsedTime(): Float =
+    (System.nanoTime() - startTime) / 1000000.0f
 
   def updateFPS(lastFPS: Long, fps: Int): (Long, Int) = {
     val isNext = (getTime() - lastFPS) > 1000.0
