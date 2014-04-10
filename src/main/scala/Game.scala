@@ -18,39 +18,8 @@ object Game extends App {
 }
 
 class Game {
-
-  val strVertexShader = """
-                        #version 330
-
-                        layout(location = 0) in vec4 position;
-                        layout(location = 1) in vec4 color;
-
-                        smooth out vec4 theColor;
-
-                        uniform vec3 offset;
-                        uniform mat4 perspectiveMatrix;
-
-                        void main()
-                        {
-                            vec4 cameraPos = position + vec4(offset.x, offset.y, offset.z, 0.0);
-
-                            gl_Position = perspectiveMatrix * cameraPos;
-                            theColor = color;
-                        }
-                        """
-
-  val strFragmentShader = """
-                          #version 330
-
-                          smooth in vec4 theColor;
-
-                          out vec4 outputColor;
-
-                          void main()
-                          {
-                              outputColor = theColor;
-                          }
-                          """
+  val strVertexShader = readFile("src/main/shaders/vertex.vert")
+  val strFragmentShader = readFile("src/main/shaders/fragment.frag")
 
   val right_extent = 0.8f
   val left_extent = -right_extent
@@ -408,5 +377,12 @@ class Game {
     val newLastFPS = if (isNext) lastFPS + 1000 else lastFPS
     if (isNext) Display.setTitle("FPS: " + fps)
     (newLastFPS, newFps)
+  }
+
+  def readFile(file: String): String = {
+    val source = io.Source.fromFile(file)
+    val str = source.getLines mkString "\n"
+    source.close()
+    str
   }
 }
